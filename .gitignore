@@ -1,0 +1,13 @@
+.env
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+project/lib/
+project/bin
+*.so
+*.dylib
+__pycache__/venv/
+chroma_db/
+uploads/
+.idea
