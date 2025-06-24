@@ -45,7 +45,7 @@ if not google_api_key:
 
 llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=google_api_key)
 
-embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/paraphrase-MiniLM-L3-v2")
 
 db = None
 retriever = None
@@ -649,6 +649,6 @@ def end_interview():
     flash("Interview ended. Please upload new documents to start a new session.", "info")
     return redirect(url_for('upload_documents'))
 
-
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get('PORT', 5000))  # render provides PORT env variable
+    app.run(host='0.0.0.0', port=port)
