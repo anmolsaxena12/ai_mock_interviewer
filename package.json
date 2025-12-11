@@ -1,0 +1,21 @@
+{
+  "name": "ai-mock-interviewer-tests",
+  "version": "1.0.0",
+  "description": "E2E tests for AI Mock Interviewer",
+  "scripts": {
+    "test": "wdio run wdio.conf.js",
+    "test:watch": "wdio run wdio.conf.js --watch"
+  },
+  "keywords": ["testing", "wdio", "e2e"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@wdio/cli": "^8.20.0",
+    "@wdio/local-runner": "^8.20.0",
+    "@wdio/mocha-framework": "^8.20.0",
+    "@wdio/spec-reporter": "^8.20.0",
+    "chromedriver": "^119.0.1",
+    "wdio-chromedriver-service": "^8.1.1"
+  }
+}
+

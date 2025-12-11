@@ -1,0 +1,37 @@
+# Test fixture data for AI Mock Interviewer tests
+
+Sample Job Description for Software Engineer:
+-------------------------------------------------
+
+Position: Senior Python Developer
+
+We are seeking a talented Senior Python Developer to join our growing engineering team.
+
+Requirements:
+- 5+ years of professional Python development experience
+- Strong experience with Flask or Django web frameworks
+- Expertise in RESTful API design and development
+- Proficient with SQL databases (PostgreSQL, MySQL)
+- Experience with Machine Learning libraries (TensorFlow, PyTorch, scikit-learn)
+- Knowledge of cloud platforms (AWS, GCP, or Azure)
+- Familiarity with Docker and Kubernetes
+- Strong understanding of data structures and algorithms
+- Experience with Git and CI/CD pipelines
+- Excellent problem-solving and communication skills
+
+Responsibilities:
+- Design and develop scalable web applications
+- Build and maintain REST APIs
+- Implement machine learning models for data analysis
+- Collaborate with cross-functional teams
+- Write clean, maintainable, and well-documented code
+- Participate in code reviews and technical discussions
+- Mentor junior developers
+
+Nice to Have:
+- Experience with microservices architecture
+- Knowledge of GraphQL
+- Contributions to open-source projects
+- Experience with Agile/Scrum methodologies
+
+
