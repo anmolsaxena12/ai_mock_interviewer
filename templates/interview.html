@@ -1,118 +1,360 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Interview - AI Mock Interviewer</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
-        .chat-container {
-            max-height: 60vh;
-            overflow-y: auto;
-            border: 1px solid #444;
-            border-radius: 8px;
+        .feedback-box {
+            background-color: #f8f9fa;
+            border-left: 4px solid #0d6efd;
             padding: 15px;
-            background-color: #333;
+            margin: 10px 0;
         }
-        .interviewer-msg {
-            background-color: #007bff;
-            color: white;
-            padding: 8px 12px;
-            border-radius: 15px;
-            margin-bottom: 10px;
-            display: inline-block;
-            max-width: 80%;
-            float: left;
-            clear: both;
-        }
-        .candidate-msg {
-            background-color: #28a745;
-            color: white;
-            padding: 8px 12px;
-            border-radius: 15px;
-            margin-bottom: 10px;
-            display: inline-block;
-            max-width: 80%;
-            float: right;
-            clear: both;
-        }
-        /* NEW: Style for feedback */
-        .feedback-msg {
-            background-color: #555; /* Darker grey */
-            color: #f8f9fa; /* Light text */
-            padding: 8px 12px;
+
+        .question-box {
+            background-color: #e7f3ff;
+            padding: 20px;
             border-radius: 8px;
-            margin-top: 5px; /* Space after answer */
-            margin-bottom: 10px;
-            font-size: 0.85em;
-            clear: both; /* Ensures it's on its own line */
-            width: 100%; /* Takes full width */
-            box-sizing: border-box; /* Include padding in width */
+            margin: 20px 0;
+        }
+
+        .history-item {
+            border-bottom: 1px solid #dee2e6;
+            padding: 15px 0;
+        }
+
+        .audio-controls {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .recording {
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .audio-visualizer {
+            height: 60px;
+            background: linear-gradient(to right, #0d6efd, #6610f2);
+            border-radius: 8px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .audio-visualizer.active {
+            display: flex;
+        }
+
+        .mode-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
         }
     </style>
 </head>
+
 <body class="bg-dark text-light">
     <div class="container mt-5">
-        <h1 class="mb-4">Interview Session</h1>
+        <!-- Mode Toggle -->
+        <div class="mode-toggle">
+            <div class="btn-group" role="group">
+                <input type="radio" class="btn-check" name="interviewMode" id="textMode" checked>
+                <label class="btn btn-outline-primary" for="textMode">
+                    <i class="bi bi-keyboard"></i> Text
+                </label>
 
-        {# Flash messages for success/error #}
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
-        <div class="chat-container mb-4">
-            {% for entry in interview_history %}
-                {% if entry.question %}
-                    <div class="interviewer-msg">
-                        <strong>Interviewer:</strong> {{ entry.question }}
-                    </div>
-                {% endif %}
-                {% if entry.answer %}
-                    <div class="candidate-msg">
-                        <strong>You:</strong> {{ entry.answer }}
-                    </div>
-                    {# NEW: Display Feedback if available #}
-                    {% if entry.feedback %}
-                        <div class="feedback-msg">
-                            <strong>Feedback:</strong> {{ entry.feedback }}
-                        </div>
-                    {% endif %}
-                {% endif %}
-            {% endfor %}
+                <input type="radio" class="btn-check" name="interviewMode" id="audioMode">
+                <label class="btn btn-outline-primary" for="audioMode">
+                    <i class="bi bi-mic"></i> Audio
+                </label>
+            </div>
         </div>
 
-        <form action="{{ url_for('interview_flow') }}" method="POST" class="mb-3">
-            <div class="mb-3">
-                <label for="user_answer" class="form-label">Your Answer:</label>
-                <textarea class="form-control bg-secondary text-light" id="user_answer" name="user_answer" rows="5" placeholder="Type your answer here..." required></textarea>
+        <h1 class="mb-4">Mock Interview Session</h1>
+        
+        {% if current_stage %}
+        <div class="alert alert-info">
+            Current Stage: <strong>{{ current_stage }}</strong>
+        </div>
+        {% endif %}
+
+        <!-- Current Question -->
+        <div class="question-box">
+            <h4><i class="bi bi-question-circle"></i> Question:</h4>
+            <p class="lead">{{ question }}</p>
+            
+            <!-- Text-to-Speech Button -->
+            <button id="speakQuestionBtn" class="btn btn-sm btn-outline-light">
+                <i class="bi bi-volume-up"></i> Hear Question
+            </button>
+        </div>
+
+        <!-- Text Input Mode (Default) -->
+        <div id="textInputSection">
+            <form method="POST" action="{{ url_for('main.interview_flow') }}">
+                <div class="mb-3">
+                    <label for="user_answer" class="form-label">Your Answer:</label>
+                    <textarea class="form-control" id="user_answer" name="user_answer" rows="6" 
+                              placeholder="Type your answer here..." required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary btn-lg">
+                    <i class="bi bi-send"></i> Submit Answer
+                </button>
+                <a href="{{ url_for('main.end_interview') }}" class="btn btn-danger btn-lg ms-2">
+                    <i class="bi bi-x-circle"></i> End Interview
+                </a>
+            </form>
+        </div>
+
+        <!-- Audio Input Mode -->
+        <div id="audioInputSection" style="display: none;">
+            <div class="audio-controls">
+                <h5 class="mb-3"><i class="bi bi-mic-fill"></i> Audio Response</h5>
+                
+                <div class="audio-visualizer" id="audioVisualizer">
+                    <span class="recording"><i class="bi bi-mic-fill"></i> Recording...</span>
+                </div>
+
+                <div class="d-flex gap-2 mt-3">
+                    <button id="startRecordingBtn" class="btn btn-success btn-lg">
+                        <i class="bi bi-mic"></i> Start Recording
+                    </button>
+                    <button id="stopRecordingBtn" class="btn btn-danger btn-lg" style="display: none;">
+                        <i class="bi bi-stop-circle"></i> Stop Recording
+                    </button>
+                    <button id="playRecordingBtn" class="btn btn-info btn-lg" style="display: none;">
+                        <i class="bi bi-play-circle"></i> Play Recording
+                    </button>
+                </div>
+
+                <div id="transcriptionBox" class="mt-3" style="display: none;">
+                    <label class="form-label">Transcription:</label>
+                    <textarea id="transcriptionText" class="form-control" rows="4" readonly></textarea>
+                </div>
+
+                <form id="audioAnswerForm" method="POST" action="{{ url_for('main.interview_flow') }}" style="display: none;">
+                    <input type="hidden" id="audioAnswer" name="user_answer">
+                    <button type="submit" class="btn btn-primary btn-lg mt-3">
+                        <i class="bi bi-send"></i> Submit Audio Answer
+                    </button>
+                </form>
             </div>
-            <button type="submit" class="btn btn-success btn-lg">Submit Answer & Get Next Question</button>
-            <a href="{{ url_for('upload_documents') }}" class="btn btn-secondary btn-lg ms-2">Upload New Documents</a>
-            <button type="button" class="btn btn-danger btn-lg ms-2" onclick="endInterview()">End Interview</button>
-        </form>
+
+            <a href="{{ url_for('main.end_interview') }}" class="btn btn-danger btn-lg mt-3">
+                <i class="bi bi-x-circle"></i> End Interview
+            </a>
+        </div>
+
+        <!-- Interview History -->
+        <div class="card bg-secondary text-light mt-5">
+            <div class="card-header">
+                <h4><i class="bi bi-clock-history"></i> Interview History</h4>
+            </div>
+            <div class="card-body">
+                {% if interview_history %}
+                    {% for entry in interview_history %}
+                        <div class="history-item">
+                            <p><strong><i class="bi bi-person-circle"></i> Interviewer:</strong> {{ entry.question }}</p>
+                            {% if entry.answer %}
+                                <p><strong><i class="bi bi-chat-left-text"></i> You:</strong> {{ entry.answer }}</p>
+                            {% endif %}
+                            {% if entry.feedback %}
+                                <div class="feedback-box">
+                                    <strong><i class="bi bi-clipboard-check"></i> Feedback:</strong>
+                                    <p class="mb-0">{{ entry.feedback }}</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p>No history yet. Start answering questions!</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Navigation to Coding Challenge -->
+        <div class="mt-4 mb-5">
+            <a href="{{ url_for('main.coding_challenge') }}" class="btn btn-lg btn-success">
+                <i class="bi bi-code-slash"></i> Go to Coding Challenge
+            </a>
+        </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1e3LPMq9fL5L3L4N" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Simple JS to scroll chat to bottom
-        document.addEventListener('DOMContentLoaded', function() {
-            var chatContainer = document.querySelector('.chat-container');
-            chatContainer.scrollTop = chatContainer.scrollHeight;
+        // Text-to-Speech for reading questions
+        const speakQuestionBtn = document.getElementById('speakQuestionBtn');
+        const questionText = "{{ question }}";
+
+        speakQuestionBtn.addEventListener('click', () => {
+            if ('speechSynthesis' in window) {
+                // Cancel any ongoing speech
+                window.speechSynthesis.cancel();
+                
+                const utterance = new SpeechSynthesisUtterance(questionText);
+                utterance.rate = 0.9;
+                utterance.pitch = 1;
+                utterance.volume = 1;
+                
+                window.speechSynthesis.speak(utterance);
+                
+                speakQuestionBtn.innerHTML = '<i class="bi bi-volume-mute"></i> Stop';
+                
+                utterance.onend = () => {
+                    speakQuestionBtn.innerHTML = '<i class="bi bi-volume-up"></i> Hear Question';
+                };
+            } else {
+                alert('Text-to-speech is not supported in your browser.');
+            }
         });
 
-        // Function to end interview and clear session
-        function endInterview() {
-            if (confirm("Are you sure you want to end the interview? This will clear your session and generated questions/answers.")) {
-                window.location.href = "{{ url_for('end_interview') }}";
+        // Mode switching
+        const textMode = document.getElementById('textMode');
+        const audioMode = document.getElementById('audioMode');
+        const textInputSection = document.getElementById('textInputSection');
+        const audioInputSection = document.getElementById('audioInputSection');
+
+        textMode.addEventListener('change', () => {
+            if (textMode.checked) {
+                textInputSection.style.display = 'block';
+                audioInputSection.style.display = 'none';
             }
+        });
+
+        audioMode.addEventListener('change', () => {
+            if (audioMode.checked) {
+                textInputSection.style.display = 'none';
+                audioInputSection.style.display = 'block';
+            }
+        });
+
+        // Speech Recognition (Audio Input)
+        let recognition = null;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let recordedBlob = null;
+
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = false;
+            recognition.lang = 'en-US';
+
+            recognition.onresult = (event) => {
+                let transcript = '';
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    transcript += event.results[i][0].transcript + ' ';
+                }
+                
+                document.getElementById('transcriptionText').value += transcript;
+                document.getElementById('audioAnswer').value = document.getElementById('transcriptionText').value;
+            };
+
+            recognition.onerror = (event) => {
+                console.error('Speech recognition error:', event.error);
+                alert('Speech recognition error: ' + event.error);
+            };
         }
+
+        const startRecordingBtn = document.getElementById('startRecordingBtn');
+        const stopRecordingBtn = document.getElementById('stopRecordingBtn');
+        const playRecordingBtn = document.getElementById('playRecordingBtn');
+        const audioVisualizer = document.getElementById('audioVisualizer');
+        const transcriptionBox = document.getElementById('transcriptionBox');
+        const audioAnswerForm = document.getElementById('audioAnswerForm');
+
+        startRecordingBtn.addEventListener('click', async () => {
+            // Clear previous recording
+            document.getElementById('transcriptionText').value = '';
+            audioChunks = [];
+            
+            // Start audio recording
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    recordedBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    playRecordingBtn.style.display = 'inline-block';
+                    audioAnswerForm.style.display = 'block';
+                };
+
+                mediaRecorder.start();
+                
+                // Start speech recognition
+                if (recognition) {
+                    recognition.start();
+                }
+
+                // Update UI
+                audioVisualizer.classList.add('active');
+                startRecordingBtn.style.display = 'none';
+                stopRecordingBtn.style.display = 'inline-block';
+                transcriptionBox.style.display = 'block';
+
+            } catch (err) {
+                console.error('Error accessing microphone:', err);
+                alert('Could not access microphone. Please grant permission.');
+            }
+        });
+
+        stopRecordingBtn.addEventListener('click', () => {
+            // Stop recording
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            }
+
+            // Stop speech recognition
+            if (recognition) {
+                recognition.stop();
+            }
+
+            // Update UI
+            audioVisualizer.classList.remove('active');
+            startRecordingBtn.style.display = 'inline-block';
+            stopRecordingBtn.style.display = 'none';
+        });
+
+        playRecordingBtn.addEventListener('click', () => {
+            if (recordedBlob) {
+                const audioUrl = URL.createObjectURL(recordedBlob);
+                const audio = new Audio(audioUrl);
+                audio.play();
+            }
+        });
+
+        // Check browser compatibility
+        window.addEventListener('load', () => {
+            if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+                console.warn('Speech recognition not supported');
+                audioMode.disabled = true;
+                document.querySelector('label[for="audioMode"]').title = 'Speech recognition not supported in this browser';
+            }
+        });
     </script>
 </body>
+
 </html>

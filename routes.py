@@ -217,3 +217,169 @@ def end_interview():
 
     flash("Interview ended. Please upload new documents to start a new session.", "info")
     return redirect(url_for('main.upload_documents'))
+
+
+@main_bp.route('/coding_challenge')
+def coding_challenge():
+    """Display coding challenge page"""
+    from services import problems
+    
+    # Get problem from session or select a random one
+    problem_id = session.get('current_problem_id')
+    
+    if problem_id:
+        problem = problems.get_problem(problem_id)
+    else:
+        problem = problems.get_random_problem()
+        session['current_problem_id'] = problem['id']
+    
+    if not problem:
+        flash("Problem not found", "danger")
+        return redirect(url_for('main.start_interview'))
+    
+    return render_template('coding_challenge.html', problem=problem)
+
+
+@main_bp.route('/run_code', methods=['POST'])
+def run_code():
+    """Run code with sample test cases"""
+    from services.code_executor import CodeExecutor, CodeExecutionError
+    from services import problems
+    import json as json_module
+    
+    data = request.get_json()
+    code = data.get('code')
+    language = data.get('language')
+    problem_id = data.get('problem_id')
+    
+    if not code or not language:
+        return json_module.dumps({'error': 'Missing code or language'}), 400
+    
+    executor = CodeExecutor()
+    
+    try:
+        # Get problem test cases
+        problem = problems.get_problem(problem_id)
+        if not problem:
+            return json_module.dumps({'error': 'Problem not found'}), 404
+        
+        # Run with first example test case
+        test_case = problem['test_cases'][0]
+        stdin_data = '\n'.join(test_case['input'])
+        
+        result = executor.execute(code, language, stdin_data)
+        
+        return json_module.dumps({
+            'output': result['output'],
+            'error': result.get('error'),
+            'test_input': stdin_data
+        })
+        
+    except CodeExecutionError as e:
+        return json_module.dumps({'error': str(e)})
+    except Exception as e:
+        return json_module.dumps({'error': f'Unexpected error: {str(e)}'})
+    finally:
+        executor.cleanup()
+
+
+@main_bp.route('/submit_code', methods=['POST'])
+def submit_code():
+    """Submit code and run all test cases"""
+    from services.code_executor import CodeExecutor, CodeExecutionError
+    from services import problems
+    import json as json_module
+    
+    data = request.get_json()
+    code = data.get('code')
+    language = data.get('language')
+    problem_id = data.get('problem_id')
+    time_taken = data.get('time_taken', 0)
+    
+    if not code or not language:
+        return json_module.dumps({'error': 'Missing code or language'}), 400
+    
+    executor = CodeExecutor()
+    
+    try:
+        # Get problem
+        problem = problems.get_problem(problem_id)
+        if not problem:
+            return json_module.dumps({'error': 'Problem not found'}), 404
+        
+        # Run all test cases
+        test_results = []
+        all_passed = True
+        
+        for test_case in problem['test_cases']:
+            stdin_data = '\n'.join(test_case['input'])
+            expected = test_case['expected_output'].strip()
+            
+            try:
+                result = executor.execute(code, language, stdin_data)
+                actual = result['output'].strip()
+                
+                # Normalize output for comparison
+                actual_normalized = actual.replace(' ', '').replace('\n', '')
+                expected_normalized = expected.replace(' ', '').replace('\n', '')
+                
+                passed = actual_normalized == expected_normalized
+                
+                test_results.append({
+                    'input': stdin_data,
+                    'expected': expected,
+                    'actual': actual,
+                    'passed': passed
+                })
+                
+                if not passed:
+                    all_passed = False
+                    
+            except CodeExecutionError as e:
+                test_results.append({
+                    'input': stdin_data,
+                    'expected': expected,
+                    'actual': f'Error: {str(e)}',
+                    'passed': False
+                })
+                all_passed = False
+        
+        # Store submission in session
+        if 'code_submissions' not in session:
+            session['code_submissions'] = []
+        
+        session['code_submissions'].append({
+            'problem_id': problem_id,
+            'language': language,
+            'passed': all_passed,
+            'time_taken': time_taken
+        })
+        
+        return json_module.dumps({
+            'test_results': test_results,
+            'all_passed': all_passed,
+            'total_tests': len(test_results),
+            'passed_tests': sum(1 for t in test_results if t['passed'])
+        })
+        
+    except CodeExecutionError as e:
+        return json_module.dumps({'error': str(e)})
+    except Exception as e:
+        return json_module.dumps({'error': f'Unexpected error: {str(e)}'})
+    finally:
+        executor.cleanup()
+
+
+@main_bp.route('/change_problem/<int:problem_id>')
+def change_problem(problem_id):
+    """Change to a different problem"""
+    from services import problems
+    
+    problem = problems.get_problem(problem_id)
+    if problem:
+        session['current_problem_id'] = problem_id
+        flash(f'Switched to problem: {problem["title"]}', 'success')
+    else:
+        flash('Problem not found', 'danger')
+    
+    return redirect(url_for('main.coding_challenge'))

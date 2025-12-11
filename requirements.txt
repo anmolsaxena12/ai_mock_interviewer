@@ -9,3 +9,12 @@ docx2txt # Docx2txtLoader needs this
 sentence-transformers # HuggingFaceEmbeddings uses this
 chromadb
 gunicorn # Good for production Flask apps
+Werkzeug  # For secure file handling
+
+# Testing dependencies
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-mock>=3.11.1
+pytest-html>=3.2.0
+pytest-benchmark>=4.0.0
+pytest-xdist>=3.3.1  # For parallel test execution
